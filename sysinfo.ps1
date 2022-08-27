@@ -152,4 +152,4 @@ Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
 Remove-Item C:\windows\temp\avtemp 2> $null > $null
 }
 
-sysinfo
+#sysinfo
