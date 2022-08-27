@@ -4,20 +4,21 @@ $DATE="27-08-22"
 <#
 Sysinfo for Hackers 
 
-To Do 
-------
-Check if Admin - then run extra chceks such as getting secpol est. 
-print out local and domain groups of the current user 
-
-Tidy the output
-check SMB - singing 
-
-
 
 Useage
 ---------
 Import-Module .\sysinfo.ps1
 sysinfo 
+
+
+
+To Do 
+------
+Check if Admin - then run extra chceks such as getting secpol est. 
+print out local and domain groups of the current user 
+Tidy the output
+check SMB - singing 
+pwd |ft -HideTableHeaders
 
 
 
