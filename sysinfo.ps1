@@ -18,7 +18,7 @@ Check if Admin - then run extra chceks such as getting secpol est.
 print out local and domain groups of the current user 
 Tidy the output
 check SMB - singing 
-pwd |ft -HideTableHeaders
+remove blank linkes 
 
 
 
@@ -49,8 +49,10 @@ $LAPS            = If((Get-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft Servi
 $ShellIsAdmin = ${env:=::} -eq $null
 
 # RDP
-$FDenyTSConnections = [bool](Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections         
+$RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 1){"Disabled"} Else {"Enabled"}
+$FDenyTSConnections = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections  
 
+$CurrentDir=$(Get-Location |%{$_.Path})
 
 $CredSSP=$($(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters' -Name AllowEncryptionOracle | findstr AllowEncryptionOracle) -replace (' ')) -Split ':' | findstr /v Oracle    
 
@@ -81,9 +83,6 @@ $NLASecurityLayer =$([bool]$(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Co
 $NLAUserAuthentication =$([bool]$(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name UserAuthentication| findstr UserAuthentication)-replace (' ')) -Split ':' | findstr /v Authentication
 
 
-
-
-
 # Password & Lockout  
 $MinimumPasswordLength = $($(net accounts | findstr "length") -replace (' ')) -Split ':' | findstr /v Mini
 $LockoutThreshold = $($(net accounts | findstr "threshold") -replace (' ')) -Split ':' | findstr /v threshold
@@ -95,31 +94,26 @@ $ComputerRole = $($(net accounts | findstr "role") -replace (' ')) -Split ':' | 
 
 
 # Dotnet 
-Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}'} | Select version | ft > C:\windows\temp\dotnettemp
-$dotnetversion=$((cat C:\windows\temp\dotnettemp  | select -Skip 3  | ForEach-object { $_.TrimEnd() } ) -join ", ")
-Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
+$dotnetversion=$(Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}'} | Select version |  %{$_.version})  -join ", "
 
 # AV
-Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct | select displayName | ft -HideTableHeaders | where{$_ -ne ""} > C:\windows\temp\avtemp
-$av=((cat C:\windows\temp\avtemp | ForEach-object { $_.TrimEnd() }  ) -join ", ").substring(2) 
-Remove-Item C:\windows\temp\avtemp 2> $null > $null
+$av=$(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct | select displayName | %{$_.displayName}) -join ", "
 
 #########################################################################################################
 
-
+$sysinfo="C:\windows\temp\sysinfo"
 
 # Build the Table 
-Write-Output "BLANK|BLANKy" > sysinfo  # this gets ignored
-
-$sysinfo="C:\windows\temp\sysinfo"
+Write-Output "BLANK|BLANKy" >  $sysinfo  # this gets ignored
 
 Write-Output "Hostname:|$Hostname" >> $sysinfo
 Write-Output "OS:|$OS" >> $sysinfo
 Write-Output "OS Build:|$OSBuild" >> $sysinfo
+Write-Output "Arch:|$Arch" >> $sysinfo
 Write-Output "Computer Role:|$ComputerRole" >> $sysinfo
 Write-Output "User:|$UserName" >> $sysinfo
 Write-Output "Admin Shell?:|$ShellIsAdmin"  >> $sysinfo
-Write-Output "Arch:|$Arch" >> $sysinfo
+Write-Output "Current Dir:|$CurrentDir" >> $sysinfo
 Write-Output "IPv4:|$IPv4" >> $sysinfo
 Write-Output "IPv6:|$IPv6" >> $sysinfo
 Write-Output "Domain:|$env:USERDNSDOMAIN" >> $sysinfo
@@ -127,7 +121,7 @@ Write-Output "Logon Server:|$Logonserver" >> $sysinfo
 Write-Output "Dotnet Verions:|$dotnetversion" >> $sysinfo
 Write-Output "PS Verion:|$PSVersion" >> $sysinfo
 Write-Output "PC Compatibly:|$PSCompatibleVersions">> $sysinfo
-Write-Output "PS Ex Policy:|$(Get-ExecutionPolicy)">> $sysinfo
+Write-Output "PS Execution Policy:|$(Get-ExecutionPolicy)">> $sysinfo
 Write-Output "Integrity Level:|$integritylevel (Is High Intergirty: $IsHighIntegrity)">> $sysinfo
 Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
 Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
@@ -139,7 +133,7 @@ Write-Output "Lockout - Threshold:|$LockoutThreshold"  >> $sysinfo
 Write-Output "Lockout - Duration:|$LockoutDuration mins"  >> $sysinfo
 Write-Output "Lockout - Window:|$LockoutWindow mins"  >> $sysinfo
 Write-Output "LAPS:|$LAPS" >> $sysinfo
-Write-Output "RDP - Enabled (FDenyTSConnections):|$FDenyTSConnections " >> $sysinfo
+Write-Output "RDP - Enabled:|$RDPEnabled (FDenyTSConnections:$FDenyTSConnections) " >> $sysinfo
 Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
 Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> $sysinfo
 
@@ -149,7 +143,7 @@ Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserA
 
 # print table 
 $P = Import-Csv -Path "$sysinfo" -Delimiter '|'
-$P | Format-Table -HideTableHeaders
+$P  | Format-Table -HideTableHeaders
 
 
 # cleanup
@@ -158,3 +152,4 @@ Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
 Remove-Item C:\windows\temp\avtemp 2> $null > $null
 }
 
+sysinfo
