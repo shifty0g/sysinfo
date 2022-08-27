@@ -11,6 +11,8 @@ Import-Module .\sysinfo.ps1
 sysinfo
 ```
 
+will put some temp files in C:\windows\temp  
+
 ## Output Example 
 
 ```

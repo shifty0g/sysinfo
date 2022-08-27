@@ -95,13 +95,14 @@ $ComputerRole = $($(net accounts | findstr "role") -replace (' ')) -Split ':' | 
 
 
 # Dotnet 
-Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}'} | Select version | ft > dotnettemp
-$dotnetversion=$((cat dotnettemp  | select -Skip 3  | ForEach-object { $_.TrimEnd() } ) -join ", ")
+Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}'} | Select version | ft > C:\windows\temp\dotnettemp
+$dotnetversion=$((cat C:\windows\temp\dotnettemp  | select -Skip 3  | ForEach-object { $_.TrimEnd() } ) -join ", ")
+Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
 
 # AV
-Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct | select displayName | ft -HideTableHeaders | where{$_ -ne ""} > avtemp
-$av=((cat avtemp  | ForEach-object { $_.TrimEnd() }  ) -join ", ").substring(2) 
-Remove-Item avtemp 2> $null > $null
+Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct | select displayName | ft -HideTableHeaders | where{$_ -ne ""} > C:\windows\temp\avtemp
+$av=((cat C:\windows\temp\avtemp | ForEach-object { $_.TrimEnd() }  ) -join ", ").substring(2) 
+Remove-Item C:\windows\temp\avtemp 2> $null > $null
 
 #########################################################################################################
 
@@ -110,47 +111,50 @@ Remove-Item avtemp 2> $null > $null
 # Build the Table 
 Write-Output "BLANK|BLANKy" > sysinfo  # this gets ignored
 
+$sysinfo="C:\windows\temp\sysinfo"
 
-Write-Output "Hostname:|$Hostname" >> sysinfo
-Write-Output "OS:|$OS" >> sysinfo
-Write-Output "OS Build:|$OSBuild" >> sysinfo
-Write-Output "Computer Role:|$ComputerRole" >> sysinfo
-Write-Output "User:|$UserName" >> sysinfo
-Write-Output "Admin Shell?:|$ShellIsAdmin"  >> sysinfo
-Write-Output "Arch:|$Arch" >> sysinfo
-Write-Output "IPv4:|$IPv4" >> sysinfo
-Write-Output "IPv6:|$IPv6" >> sysinfo
-Write-Output "Domain:|$env:USERDNSDOMAIN" >> sysinfo
-Write-Output "Logon Server:|$Logonserver" >> sysinfo
-Write-Output "Dotnet Verions:|$dotnetversion" >> sysinfo
-Write-Output "PS Verion:|$PSVersion" >> sysinfo
-Write-Output "PC Compatibly:|$PSCompatibleVersions">> sysinfo
-Write-Output "PS Ex Policy:|$(Get-ExecutionPolicy)">> sysinfo
-Write-Output "Integrity Level:|$integritylevel (Is High Intergirty: $IsHighIntegrity)">> sysinfo
-Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> sysinfo
-Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> sysinfo 
-Write-Output "Windows Firewall:|Private:$Private, Domain:$Domain, Public:$Public" >> sysinfo
-Write-Output "AntiVirus:|$av">> sysinfo
-Write-Output "LSASS Proteciton:|$LSASSPROTECTION" >> sysinfo
-Write-Output "Password - Minimum Length:|$MinimumPasswordLength"  >> sysinfo
-Write-Output "Lockout - Threshold:|$LockoutThreshold"  >> sysinfo
-Write-Output "Lockout - Duration:|$LockoutDuration mins"  >> sysinfo
-Write-Output "Lockout - Window:|$LockoutWindow mins"  >> sysinfo
-Write-Output "LAPS:|$LAPS" >> sysinfo
-Write-Output "RDP - Enabled (FDenyTSConnections):|$FDenyTSConnections " >> sysinfo
-Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> sysinfo
-Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> sysinfo
+Write-Output "Hostname:|$Hostname" >> $sysinfo
+Write-Output "OS:|$OS" >> $sysinfo
+Write-Output "OS Build:|$OSBuild" >> $sysinfo
+Write-Output "Computer Role:|$ComputerRole" >> $sysinfo
+Write-Output "User:|$UserName" >> $sysinfo
+Write-Output "Admin Shell?:|$ShellIsAdmin"  >> $sysinfo
+Write-Output "Arch:|$Arch" >> $sysinfo
+Write-Output "IPv4:|$IPv4" >> $sysinfo
+Write-Output "IPv6:|$IPv6" >> $sysinfo
+Write-Output "Domain:|$env:USERDNSDOMAIN" >> $sysinfo
+Write-Output "Logon Server:|$Logonserver" >> $sysinfo
+Write-Output "Dotnet Verions:|$dotnetversion" >> $sysinfo
+Write-Output "PS Verion:|$PSVersion" >> $sysinfo
+Write-Output "PC Compatibly:|$PSCompatibleVersions">> $sysinfo
+Write-Output "PS Ex Policy:|$(Get-ExecutionPolicy)">> $sysinfo
+Write-Output "Integrity Level:|$integritylevel (Is High Intergirty: $IsHighIntegrity)">> $sysinfo
+Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
+Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
+Write-Output "Windows Firewall:|Private:$Private, Domain:$Domain, Public:$Public" >> $sysinfo
+Write-Output "AntiVirus:|$av">> $sysinfo
+Write-Output "LSASS Proteciton:|$LSASSPROTECTION" >> $sysinfo
+Write-Output "Password - Minimum Length:|$MinimumPasswordLength"  >> $sysinfo
+Write-Output "Lockout - Threshold:|$LockoutThreshold"  >> $sysinfo
+Write-Output "Lockout - Duration:|$LockoutDuration mins"  >> $sysinfo
+Write-Output "Lockout - Window:|$LockoutWindow mins"  >> $sysinfo
+Write-Output "LAPS:|$LAPS" >> $sysinfo
+Write-Output "RDP - Enabled (FDenyTSConnections):|$FDenyTSConnections " >> $sysinfo
+Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
+Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> $sysinfo
 
 
 #Write-Output "Groups - Local:|$UserLocalGroups" >> sysinfo
 #Write-Output "Groups - Domain:|$UserDomainGroups" >> sysinfo
 
 # print table 
-$P = Import-Csv -Path "sysinfo" -Delimiter '|'
+$P = Import-Csv -Path "$sysinfo" -Delimiter '|'
 $P | Format-Table -HideTableHeaders
 
 
 # cleanup
-Remove-Item sysinfo 2> $null > $null
+Remove-Item C:\windows\temp\sysinfo 2> $null > $null
+Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
+Remove-Item C:\windows\temp\avtemp 2> $null > $null
 }
 
