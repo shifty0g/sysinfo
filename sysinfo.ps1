@@ -33,7 +33,7 @@ number of logged in users and list them   so  Logged in Users : [2] blah\user1, 
 if bitlocker is off then print off 
 detect if it is a vm	- is VM: Yes - Vmware
 System Language .. maybe keybaord layout
-NW  IP address [DHCP/STATIC]
+NW  IP address [DHCP/STATIC][INTNAME] 192.168.80.1    ...  have it better
 
 maybe have a focused sysinfo and a full 
 
@@ -217,6 +217,7 @@ $ShellIsAdmin = ${env:=::} -eq $null
 # RDP
 $RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 1){"Disabled"} Else {"Enabled"}
 $FDenyTSConnections = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections  
+$RDPUsers = $($(net localgroup "Remote Desktop Users" | select -Skip 6 | findstr /v "The command completed") -Split ' ' | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
 
 $CurrentDir=$(Get-Location |%{$_.Path})
 
@@ -272,6 +273,9 @@ $BitlockerPercentage=$($($bitlocker | Select-String "Percentage Encrypted:") -Sp
 # check if VM
 $IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual")
 
+#winrm
+$WinRMENabled = [bool](Test-WSMan -ComputerName . -ErrorAction SilentlyContinue)
+
 
 #########################################################################################################
 
@@ -285,6 +289,7 @@ Write-Output "OS:|$OS" >> $sysinfo
 Write-Output "OS Build:|$OSBuild" >> $sysinfo
 Write-Output "Arch:|$Arch" >> $sysinfo
 Write-Output "Computer Role:|$ComputerRole" >> $sysinfo
+Write-Output "Is Virtual:|$IsVirtual" >> $sysinfo
 Write-Output "Whoami:|$UserName" >> $sysinfo
 Write-Output "Logged in Users:|$LoggedinUsers" >> $sysinfo
 Write-Output "Admin Shell?:|$ShellIsAdmin"  >> $sysinfo
@@ -293,26 +298,29 @@ Write-Output "IPv4:|$IPv4" >> $sysinfo
 Write-Output "IPv6:|$IPv6" >> $sysinfo
 Write-Output "Domain:|$env:USERDNSDOMAIN" >> $sysinfo
 Write-Output "Logon Server:|$Logonserver" >> $sysinfo
+Write-Output "Integrity Level:|$integritylevel (Is High Intergirty: $IsHighIntegrity)">> $sysinfo
+Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
+Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
+Write-Output "Bitlocker:|C:/ $BitlockerStatus ($BitlockerPercentage)" >> $sysinfo
+Write-Output "Windows Firewall:|Private:$Private, Domain:$Domain, Public:$Public" >> $sysinfo
+Write-Output "AntiVirus:|$av">> $sysinfo
+Write-Output "LSASS Proteciton:|$LSASSPROTECTION" >> $sysinfo
 Write-Output "Dotnet Verions:|$dotnetversion" >> $sysinfo
 Write-Output "PS Verion:|$PSVersion" >> $sysinfo
 Write-Output "PS Compatibly:|$PSCompatibleVersions">> $sysinfo
 Write-Output "PS Execution Policy:|$(Get-ExecutionPolicy)">> $sysinfo
-Write-Output "Integrity Level:|$integritylevel (Is High Intergirty: $IsHighIntegrity)">> $sysinfo
-Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
-Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
-Write-Output "Windows Firewall:|Private:$Private, Domain:$Domain, Public:$Public" >> $sysinfo
-Write-Output "AntiVirus:|$av">> $sysinfo
-Write-Output "LSASS Proteciton:|$LSASSPROTECTION" >> $sysinfo
-Write-Output "Password - Minimum Length:|$MinimumPasswordLength"  >> $sysinfo
+Write-Output "Password - Minimum Length:|$MinimumPasswordLength characters"  >> $sysinfo
+Write-Output "LAPS:|$LAPS" >> $sysinfo
 Write-Output "Lockout - Threshold:|$LockoutThreshold"  >> $sysinfo
 Write-Output "Lockout - Duration:|$LockoutDuration mins"  >> $sysinfo
 Write-Output "Lockout - Window:|$LockoutWindow mins"  >> $sysinfo
-Write-Output "LAPS:|$LAPS" >> $sysinfo
-Write-Output "RDP - Enabled:|$RDPEnabled (FDenyTSConnections:$FDenyTSConnections) " >> $sysinfo
+Write-Output "WinRM Enabled:|$WinRMENabled" >> $sysinfo
+Write-Output "RDP Enabled:|$RDPEnabled (FDenyTSConnections:$FDenyTSConnections) " >> $sysinfo
+Write-Output "RDP Users:|$RDPUsers"  >> $sysinfo
 Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
 Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> $sysinfo
-Write-Output "Bitlocker:|C:/ $BitlockerStatus ($BitlockerPercentage)" >> $sysinfo
-Write-Output "Is Virtual:|$IsVirtual" >> $sysinfo
+
+
 
 #Write-Output "Groups - Local:|$UserLocalGroups" >> sysinfo
 #Write-Output "Groups - Domain:|$UserDomainGroups" >> sysinfo
