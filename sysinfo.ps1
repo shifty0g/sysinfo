@@ -276,6 +276,9 @@ $IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual")
 #winrm
 $WinRMENabled = [bool](Test-WSMan -ComputerName . -ErrorAction SilentlyContinue)
 
+# chached logons 
+$CachedLogons=$($(Get-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name CachedLogonsCount | findstr CachedLogonsCount)-replace (' ')) -Split ':' | findstr /v CachedLogonsCount
+
 
 #########################################################################################################
 
@@ -311,6 +314,7 @@ Write-Output "PS Compatibly:|$PSCompatibleVersions">> $sysinfo
 Write-Output "PS Execution Policy:|$(Get-ExecutionPolicy)">> $sysinfo
 Write-Output "Password - Minimum Length:|$MinimumPasswordLength characters"  >> $sysinfo
 Write-Output "LAPS:|$LAPS" >> $sysinfo
+Write-Output "Cached Logons:|$CachedLogons" >> $sysinfo
 Write-Output "Lockout - Threshold:|$LockoutThreshold"  >> $sysinfo
 Write-Output "Lockout - Duration:|$LockoutDuration mins"  >> $sysinfo
 Write-Output "Lockout - Window:|$LockoutWindow mins"  >> $sysinfo
@@ -335,5 +339,3 @@ Remove-Item C:\windows\temp\sysinfo 2> $null > $null
 Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
 Remove-Item C:\windows\temp\avtemp 2> $null > $null
 }
-
-sysinfo
