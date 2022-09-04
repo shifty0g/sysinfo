@@ -19,6 +19,172 @@ print out local and domain groups of the current user
 Tidy the output
 check SMB - singing 
 remove blank linkes 
+cached logons
+amsi settings 
+more windef settings
+last updated 
+WinRM 
+Bitlocker
+another way to get av - program files grep 
+smb - enabled , versions, signing 
+Read write access on folder...
+RDP users who can login
+number of logged in users and list them   so  Logged in Users : [2] blah\user1, blah\user2
+if bitlocker is off then print off 
+detect if it is a vm	- is VM: Yes - Vmware
+System Language .. maybe keybaord layout
+NW  IP address [DHCP/STATIC]
+
+maybe have a focused sysinfo and a full 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+MSF example 
+------------
+meterpreter > sysinfo
+Computer        : HACKPARK
+OS              : Windows 2012 R2 (6.3 Build 9600).
+Architecture    : x64
+System Language : en_US
+Domain          : WORKGROUP
+Logged On Users : 1
+Meterpreter     : x86/windows
+meterpreter > 
+
+
+
+winpeas example
+-----------------
+Hostname: hackpark
+ProductName: Windows Server 2012 R2 Standard
+EditionID: ServerStandard
+ReleaseId: 
+BuildBranch: 
+CurrentMajorVersionNumber: 
+CurrentVersion: 6.3
+Architecture: AMD64
+ProcessorCount: 2
+SystemLang: en-US
+KeyboardLang: English (United States)
+TimeZone: (UTC-08:00) Pacific Time (US & Canada)
+IsVirtualMachine: False
+Current Time: 9/3/2022 12:49:16 AM
+HighIntegrity: False
+PartOfDomain: False
+Hotfixes: KB2919355, KB2919442, KB2937220, KB2938772, KB2939471, KB2949621, KB3035131, KB3060716,
+
+
+
+Systeminfo example
+-----------------
+C:\Users\trav>systeminfo
+
+Host Name:                 EARTH
+OS Name:                   Microsoft Windows 10 Pro
+OS Version:                10.0.19044 N/A Build 19044
+OS Manufacturer:           Microsoft Corporation
+OS Configuration:          Standalone Workstation
+OS Build Type:             Multiprocessor Free
+Registered Owner:          teddy
+Registered Organization:
+Product ID:                00330-80000-00000-AA805
+Original Install Date:     07/04/2021, 08:24:13
+System Boot Time:          03/09/2022, 08:13:28
+System Manufacturer:       ASUS
+System Model:              System Product Name
+System Type:               x64-based PC
+Processor(s):              1 Processor(s) Installed.
+                           [01]: Intel64 Family 6 Model 165 Stepping 5 GenuineIntel ~4104 Mhz
+BIOS Version:              American Megatrends Inc. 2004, 13/01/2021
+Windows Directory:         C:\Windows
+System Directory:          C:\Windows\system32
+Boot Device:               \Device\HarddiskVolume3
+System Locale:             en-gb;English (United Kingdom)
+Input Locale:              en-gb;English (United Kingdom)
+Time Zone:                 (UTC+00:00) Dublin, Edinburgh, Lisbon, London
+Total Physical Memory:     32,671 MB
+Available Physical Memory: 19,627 MB
+Virtual Memory: Max Size:  37,535 MB
+Virtual Memory: Available: 21,491 MB
+Virtual Memory: In Use:    16,044 MB
+Page File Location(s):     C:\pagefile.sys
+Domain:                    WORKGROUP
+Logon Server:              \\system1
+Hotfix(s):                 20 Hotfix(s) Installed.
+                           [01]: KB5013624
+                           [02]: KB4562830
+                           [03]: KB4570334
+                           [04]: KB4577586
+                           [05]: KB4580325
+                           [06]: KB4586864
+                           [07]: KB4589212
+                           [08]: KB5000736
+                           [09]: KB5003791
+                           [10]: KB5012170
+                           [11]: KB5016616
+                           [12]: KB5006753
+                           [13]: KB5007273
+                           [14]: KB5011352
+                           [15]: KB5011651
+                           [16]: KB5014032
+                           [17]: KB5014035
+                           [18]: KB5014671
+                           [19]: KB5015895
+                           [20]: KB5005699
+Network Card(s):           7 NIC(s) Installed.
+                           [01]: Intel(R) Ethernet Controller (2) I225-V
+                                 Connection Name: Ethernet
+                                 DHCP Enabled:    Yes
+                                 DHCP Server:     192.168.0.1
+                                 IP address(es)
+                                 [01]: 192.168.0.40
+                                 [02]: fe80::a562:6af8:d28a:4a27
+                           [02]: VirtualBox Host-Only Ethernet Adapter
+                                 Connection Name: VirtualBox Host-Only Network
+                                 DHCP Enabled:    No
+                                 IP address(es)
+                                 [01]: 192.168.56.1
+                                 [02]: fe80::b5d9:2a66:778f:d75a
+                           [03]: Nlwt Tun
+                                 Connection Name: NordLynx
+                                 Status:          Media disconnected
+                           [04]: TAP-Windows Adapter V9
+                                 Connection Name: Ethernet 2
+                                 Status:          Media disconnected
+                           [05]: TAP-NordVPN Windows Adapter V9
+                                 Connection Name: Ethernet 3
+                                 Status:          Media disconnected
+                           [06]: VMware Virtual Ethernet Adapter for VMnet1
+                                 Connection Name: VMware Network Adapter VMnet1
+                                 DHCP Enabled:    No
+                                 IP address(es)
+                                 [01]: 192.168.110.1
+                                 [02]: fe80::b54d:7469:58ed:ed21
+                           [07]: VMware Virtual Ethernet Adapter for VMnet8
+                                 Connection Name: VMware Network Adapter VMnet8
+                                 DHCP Enabled:    No
+                                 IP address(es)
+                                 [01]: 192.168.46.1
+                                 [02]: fe80::5978:24e5:5314:6792
+Hyper-V Requirements:      VM Monitor Mode Extensions: Yes
+                           Virtualization Enabled In Firmware: Yes
+                           Second Level Address Translation: Yes
+                           Data Execution Prevention Available: Yes
+
 
 
 
@@ -35,10 +201,10 @@ $OS				= $os_info.caption + $os_info.CSDVersion
 $OSBuild			= $os_info.Version 
 $Arch			= $os_info.OSArchitecture     
 
-$UserName		= $ENV:USERNAME
+$UserName		= $(whoami)
 $LocalUsers = $($(net user | select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
 #$DomainUsers = $($(net user /domain 2>$null| select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "      
-      
+$LoggedinUsers = $((Get-CimInstance -ClassName Win32_ComputerSystem).Username | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "    
                   
 $LogonServer		= $ENV:LOGONSERVER          
 $PSVersion       = $PSVersionTable.PSVersion.ToString()
@@ -54,7 +220,7 @@ $FDenyTSConnections = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\
 
 $CurrentDir=$(Get-Location |%{$_.Path})
 
-$CredSSP=$($(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters' -Name AllowEncryptionOracle | findstr AllowEncryptionOracle) -replace (' ')) -Split ':' | findstr /v Oracle    
+$CredSSP=$($(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters' -Name AllowEncryptionOracle 2> $null | findstr AllowEncryptionOracle) -replace (' ')) -Split ':' | findstr /v Oracle      
 
 # UAC - Integrity 
 $UAC             = If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).EnableLUA -eq 1){"Enabled"} Else {"Disabled (UAC is Disabled)"}
@@ -92,12 +258,20 @@ $LockoutWindow = $($(net accounts | findstr "window") -replace (' ')) -Split ':'
 
 $ComputerRole = $($(net accounts | findstr "role") -replace (' ')) -Split ':' | findstr /v role
 
-
 # Dotnet 
 $dotnetversion=$(Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}'} | Select version |  %{$_.version})  -join ", "
 
 # AV
 $av=$(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct | select displayName | %{$_.displayName}) -join ", "
+
+# Bitlocker
+$Bitlocker=$(manage-bde.exe  -status C:)
+$BitlockerStatus=$($(echo $Bitlocker | Select-String "Conversion Status:") -Split ':' | findstr /v "Conversion Status").Trim(" ") 2> $null
+$BitlockerPercentage=$($($bitlocker | Select-String "Percentage Encrypted:") -Split ':'| findstr /v "Percentage Encrypted").Trim(" ")
+
+# check if VM
+$IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual")
+
 
 #########################################################################################################
 
@@ -111,7 +285,8 @@ Write-Output "OS:|$OS" >> $sysinfo
 Write-Output "OS Build:|$OSBuild" >> $sysinfo
 Write-Output "Arch:|$Arch" >> $sysinfo
 Write-Output "Computer Role:|$ComputerRole" >> $sysinfo
-Write-Output "User:|$UserName" >> $sysinfo
+Write-Output "Whoami:|$UserName" >> $sysinfo
+Write-Output "Logged in Users:|$LoggedinUsers" >> $sysinfo
 Write-Output "Admin Shell?:|$ShellIsAdmin"  >> $sysinfo
 Write-Output "Current Dir:|$CurrentDir" >> $sysinfo
 Write-Output "IPv4:|$IPv4" >> $sysinfo
@@ -120,7 +295,7 @@ Write-Output "Domain:|$env:USERDNSDOMAIN" >> $sysinfo
 Write-Output "Logon Server:|$Logonserver" >> $sysinfo
 Write-Output "Dotnet Verions:|$dotnetversion" >> $sysinfo
 Write-Output "PS Verion:|$PSVersion" >> $sysinfo
-Write-Output "PC Compatibly:|$PSCompatibleVersions">> $sysinfo
+Write-Output "PS Compatibly:|$PSCompatibleVersions">> $sysinfo
 Write-Output "PS Execution Policy:|$(Get-ExecutionPolicy)">> $sysinfo
 Write-Output "Integrity Level:|$integritylevel (Is High Intergirty: $IsHighIntegrity)">> $sysinfo
 Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
@@ -136,7 +311,8 @@ Write-Output "LAPS:|$LAPS" >> $sysinfo
 Write-Output "RDP - Enabled:|$RDPEnabled (FDenyTSConnections:$FDenyTSConnections) " >> $sysinfo
 Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
 Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> $sysinfo
-
+Write-Output "Bitlocker:|C:/ $BitlockerStatus ($BitlockerPercentage)" >> $sysinfo
+Write-Output "Is Virtual:|$IsVirtual" >> $sysinfo
 
 #Write-Output "Groups - Local:|$UserLocalGroups" >> sysinfo
 #Write-Output "Groups - Domain:|$UserDomainGroups" >> sysinfo
@@ -152,4 +328,4 @@ Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
 Remove-Item C:\windows\temp\avtemp 2> $null > $null
 }
 
-#sysinfo
+sysinfo
