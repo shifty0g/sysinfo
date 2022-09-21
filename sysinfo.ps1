@@ -1,6 +1,10 @@
 ﻿$NAME="sysinfo"
 $VERSION="0.2"
 $DATE="27-08-22"
+
+$ProgressPreference = 'SilentlyContinue'
+$ErrorActionPreference = ‘SilentlyContinue’
+
 <#
 Sysinfo for Hackers 
 
@@ -30,7 +34,7 @@ smb - enabled , versions, signing
 Read write access on folder...
 RDP users who can login
 number of logged in users and list them   so  Logged in Users : [2] blah\user1, blah\user2
-if bitlocker is off then print off 
+if bitlocker is off then print off . NOT ENCRYPTED
 detect if it is a vm	- is VM: Yes - Vmware
 System Language .. maybe keybaord layout
 NW  IP address [DHCP/STATIC][INTNAME] 192.168.80.1    ...  have it better
@@ -39,7 +43,7 @@ maybe have a focused sysinfo and a full
 
 
 
-
+add in applocker chceck.  see whats blocked  - $a = Get-AppLockerPolicy -Effective; $a.rulecollections
 
 
 
@@ -192,14 +196,16 @@ Hyper-V Requirements:      VM Monitor Mode Extensions: Yes
 #########################################################################################################
 
 function sysinfo {
+$ProgressPreference = 'SilentlyContinue'	
+	
 $os_info = gwmi Win32_OperatingSystem
-$IsHighIntegrity = [bool]([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")    
-$Hostname		= $ENV:COMPUTERNAME      
-$IPv4			= (@([System.Net.Dns]::GetHostAddresses($ENV:HOSTNAME)) | %{$_.IPAddressToString}|findstr /v :) -join ", "        		
-$IPv6			= (@([System.Net.Dns]::GetHostAddresses($ENV:HOSTNAME)) | %{$_.IPAddressToString}|findstr :) -join ", "        
-$OS				= $os_info.caption + $os_info.CSDVersion
-$OSBuild			= $os_info.Version 
-$Arch			= $os_info.OSArchitecture     
+$IsHighIntegrity = [bool]([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator") 2> $null    
+$Hostname		= $ENV:COMPUTERNAME 2> $null      
+$IPv4			= (@([System.Net.Dns]::GetHostAddresses($ENV:HOSTNAME)) | %{$_.IPAddressToString}|findstr /v :) -join ", " 2> $null        		
+$IPv6			= (@([System.Net.Dns]::GetHostAddresses($ENV:HOSTNAME)) | %{$_.IPAddressToString}|findstr :) -join ", " 2> $null       
+$OS				= $os_info.caption + $os_info.CSDVersion 2> $null
+$OSBuild			= $os_info.Version 2> $null 
+$Arch			= $os_info.OSArchitecture 2> $null     
 
 $UserName		= $(whoami)
 $LocalUsers = $($(net user | select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
@@ -215,28 +221,28 @@ $LAPS            = If((Get-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft Servi
 $ShellIsAdmin = ${env:=::} -eq $null
 
 # RDP
-$RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 1){"Disabled"} Else {"Enabled"}
-$FDenyTSConnections = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections  
-$RDPUsers = $($(net localgroup "Remote Desktop Users" | select -Skip 6 | findstr /v "The command completed") -Split ' ' | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
+$RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 1){"Disabled"} Else {"Enabled"} 2> $null
+$FDenyTSConnections = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections 2> $null
+$RDPUsers = $($(net localgroup "Remote Desktop Users" | select -Skip 6 | findstr /v "The command completed") -Split ' ' | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", " 2> $null
 
-$CurrentDir=$(Get-Location |%{$_.Path})
+$CurrentDir=$(Get-Location |%{$_.Path}) 2> $null
 
-$CredSSP=$($(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters' -Name AllowEncryptionOracle 2> $null | findstr AllowEncryptionOracle) -replace (' ')) -Split ':' | findstr /v Oracle      
+$CredSSP=$($(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters' -Name AllowEncryptionOracle 2> $null | findstr AllowEncryptionOracle) -replace (' ')) -Split ':' | findstr /v Oracle2> $null      
 
 # UAC - Integrity 
-$UAC             = If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).EnableLUA -eq 1){"Enabled"} Else {"Disabled (UAC is Disabled)"}
-$integritylevel=$($(whoami /groups | select-string Label) -Split '\\' | Select-String - | findstr Level).Substring(0,22) -replace "`n",", " -replace "`r",", "
+$UAC             = If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).EnableLUA -eq 1){"Enabled"} Else {"Disabled (UAC is Disabled)"} 2> $null
+$integritylevel=$($(whoami /groups | select-string Label) -Split '\\' | Select-String - | findstr Level).Substring(0,22) -replace "`n",", " -replace "`r",", " 2> $null
  # LocalAccountTokenFilterPolicy = 1 disables local account token filtering for all non-rid500 accounts
-$UACLocalAccountTokenFilterPolicy    = If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).LocalAccountTokenFilterPolicy -eq 1){"Disabled (PTH likely w/ non-RID500 Local Admins)"} Else {"Enabled (Remote Administration restricted for non-RID500 Local Admins)"}
-$UACFilterAdministratorToken     	= If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).FilterAdministratorToken -eq 1){"Enabled (RID500 protected)"} Else {"Disabled (PTH likely with RID500 Account)"}
-$HighIntegrity           			= $IsHighIntegrity		
+$UACLocalAccountTokenFilterPolicy    = If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).LocalAccountTokenFilterPolicy -eq 1){"Disabled (PTH likely w/ non-RID500 Local Admins)"} Else {"Enabled (Remote Administration restricted for non-RID500 Local Admins)"} 2> $null
+$UACFilterAdministratorToken     	= If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).FilterAdministratorToken -eq 1){"Enabled (RID500 protected)"} Else {"Disabled (PTH likely with RID500 Account)"} 2> $null
+$HighIntegrity           			= $IsHighIntegrity 2> $null
 		
 
 # Firewall 
 $regkey = "HKLM:\System\ControlSet001\Services\SharedAccess\Parameters\FirewallPolicy"
-$Private    = If ((Get-ItemProperty $regkey\StandardProfile).EnableFirewall -eq 1){"Enabled"}Else {"Disabled"}
-$Domain     = If ((Get-ItemProperty $regkey\DomainProfile).EnableFirewall -eq 1){"Enabled"}Else {"Disabled"}
-$Public     = If ((Get-ItemProperty $regkey\PublicProfile).EnableFirewall -eq 1){"Enabled"}Else {"Disabled"}
+$Private    = If ((Get-ItemProperty $regkey\StandardProfile).EnableFirewall -eq 1){"Enabled"}Else {"Disabled"} 2> $null
+$Domain     = If ((Get-ItemProperty $regkey\DomainProfile).EnableFirewall -eq 1){"Enabled"}Else {"Disabled"} 2> $null
+$Public     = If ((Get-ItemProperty $regkey\PublicProfile).EnableFirewall -eq 1){"Enabled"}Else {"Disabled"} 2> $null
 
 ## Secedit stuff - needs admin to do this 
 #secedit /export /cfg temp 2> $null > $null 
@@ -246,38 +252,38 @@ $Public     = If ((Get-ItemProperty $regkey\PublicProfile).EnableFirewall -eq 1)
 #
 
 # NLA 
-$NLASecurityLayer =$([bool]$(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name SecurityLayer | findstr SecurityLayer)-replace (' ')) -Split ':' | findstr /v Security
-$NLAUserAuthentication =$([bool]$(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name UserAuthentication| findstr UserAuthentication)-replace (' ')) -Split ':' | findstr /v Authentication
+$NLASecurityLayer =$([bool]$(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name SecurityLayer | findstr SecurityLayer)-replace (' ')) -Split ':' | findstr /v Security 2> $null
+$NLAUserAuthentication =$([bool]$(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name UserAuthentication| findstr UserAuthentication)-replace (' ')) -Split ':' | findstr /v Authentication 2> $null
 
 
 # Password & Lockout  
-$MinimumPasswordLength = $($(net accounts | findstr "length") -replace (' ')) -Split ':' | findstr /v Mini
-$LockoutThreshold = $($(net accounts | findstr "threshold") -replace (' ')) -Split ':' | findstr /v threshold
-$LockoutDuration = $($(net accounts | findstr "duration") -replace (' ')) -Split ':' | findstr /v duration
-$LockoutWindow = $($(net accounts | findstr "window") -replace (' ')) -Split ':' | findstr /v window
+$MinimumPasswordLength = $($(net accounts | findstr "length") -replace (' ')) -Split ':' | findstr /v Mini 2> $null
+$LockoutThreshold = $($(net accounts | findstr "threshold") -replace (' ')) -Split ':' | findstr /v threshold 2> $null
+$LockoutDuration = $($(net accounts | findstr "duration") -replace (' ')) -Split ':' | findstr /v duration 2> $null
+$LockoutWindow = $($(net accounts | findstr "window") -replace (' ')) -Split ':' | findstr /v window 2> $null
 
 
-$ComputerRole = $($(net accounts | findstr "role") -replace (' ')) -Split ':' | findstr /v role
+$ComputerRole = $($(net accounts | findstr "role") -replace (' ')) -Split ':' | findstr /v role 2> $null
 
 # Dotnet 
-$dotnetversion=$(Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}'} | Select version |  %{$_.version})  -join ", "
+$dotnetversion=$(Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -Recurse | Get-ItemProperty -Name version -EA 0 | Where { $_.PSChildName -Match '^(?!S)\p{L}'} | Select version |  %{$_.version})  -join ", " 2> $null
 
 # AV
-$av=$(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct | select displayName | %{$_.displayName}) -join ", "
+$av=$(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntivirusProduct | select displayName | %{$_.displayName}) -join ", " 2> $null
 
 # Bitlocker
-$Bitlocker=$(manage-bde.exe  -status C:)
+$Bitlocker=$(manage-bde.exe  -status C: 2> $null)
 $BitlockerStatus=$($(echo $Bitlocker | Select-String "Conversion Status:") -Split ':' | findstr /v "Conversion Status").Trim(" ") 2> $null
-$BitlockerPercentage=$($($bitlocker | Select-String "Percentage Encrypted:") -Split ':'| findstr /v "Percentage Encrypted").Trim(" ")
+$BitlockerPercentage=$($($bitlocker | Select-String "Percentage Encrypted:") -Split ':'| findstr /v "Percentage Encrypted").Trim(" ") 2> $null
 
 # check if VM
-$IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual")
+$IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual") 2> $null
 
 #winrm
-$WinRMENabled = [bool](Test-WSMan -ComputerName . -ErrorAction SilentlyContinue)
+$WinRMENabled = [bool](Test-WSMan -ComputerName . -ErrorAction SilentlyContinue) 2> $null
 
 # chached logons 
-$CachedLogons=$($(Get-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name CachedLogonsCount | findstr CachedLogonsCount)-replace (' ')) -Split ':' | findstr /v CachedLogonsCount
+$CachedLogons=$($(Get-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name CachedLogonsCount | findstr CachedLogonsCount)-replace (' ')) -Split ':' | findstr /v CachedLogonsCount 2> $null
 
 
 #########################################################################################################
@@ -331,7 +337,7 @@ Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserA
 
 # print table 
 $P = Import-Csv -Path "$sysinfo" -Delimiter '|'
-$P  | Format-Table -HideTableHeaders
+$P  | Format-Table -HideTableHeaders | Out-String -Width 150 | ft 
 
 
 # cleanup
