@@ -232,23 +232,23 @@ Sets the console window to the maximum size available
     This function is only available in Windows
  
 #>
-    [CmdletBinding(DefaultParameterSetName = "MaxSize")]
-    param(
-        [Parameter(Mandatory, ParameterSetName = "CustomSize")]
-        [ValidateScript({ $_ -gt 0})]
-        # Target Height
-        [int] $Height = 50,
-
-        [Parameter(Mandatory, ParameterSetName = "CustomSize")]
-        [ValidateScript({ $_ -gt 0})]
-        # Target Width
-        [int] $Width = 120,
-
-        [Parameter(ParameterSetName = "MaxSize")]
-        # Maximize the window
-        [switch] $Maximize = $false
-        )
-    
+    #[CmdletBinding(DefaultParameterSetName = "MaxSize")]
+    #param(
+    #    [Parameter(Mandatory, ParameterSetName = "CustomSize")]
+    #    [ValidateScript({ $_ -gt 0})]
+    #    # Target Height
+    #    [int] $Height = 50,
+    #
+    #    [Parameter(Mandatory, ParameterSetName = "CustomSize")]
+    #    [ValidateScript({ $_ -gt 0})]
+    #    # Target Width
+    #    [int] $Width = 120,
+    #
+    #    [Parameter(ParameterSetName = "MaxSize")]
+    #    # Maximize the window
+    #    [switch] $Maximize = $false
+    #    )
+    #
     $maxHeight = $Host.UI.RawUI.MaxPhysicalWindowSize.Height 
     $maxWidth = $Host.UI.RawUI.MaxPhysicalWindowSize.Width 
     if ($Maximize) {
@@ -285,7 +285,9 @@ function cut {
 
 
 function sysinfo {
-	
+
+$ProgressPreference = 'SilentlyContinue'
+$ErrorActionPreference = ‘SilentlyContinue’	
 Set-WindowSize -Height 200 -Width 400	
 	
 	
@@ -454,3 +456,5 @@ Remove-Item C:\windows\temp\loggedinusers.txt 2> $null > $null
 }
 
 
+
+Set-WindowSize -Height 200 -Width 800
