@@ -285,6 +285,10 @@ function cut {
 
 
 function sysinfo {
+	
+Set-WindowSize -Height 200 -Width 400	
+	
+	
 $ProgressPreference = 'SilentlyContinue'	
 	
 $os_info = gwmi Win32_OperatingSystem
@@ -450,5 +454,3 @@ Remove-Item C:\windows\temp\loggedinusers.txt 2> $null > $null
 }
 
 
-Set-WindowSize -Height 200 -Width 400
-sysinfo
