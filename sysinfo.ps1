@@ -1,6 +1,6 @@
 ﻿$NAME="sysinfo"
 $VERSION="0.2"
-$DATE="27-08-22"
+$DATE="25-09-22"
 
 $ProgressPreference = 'SilentlyContinue'
 $ErrorActionPreference = ‘SilentlyContinue’
@@ -19,15 +19,23 @@ sysinfo
 To Do 
 ------
 Check if Admin - then run extra chceks such as getting secpol est. 
+sort high integrity make it look better
+section is suished on CS
 print out local and domain groups of the current user 
 Tidy the output
-check SMB - singing 
+Proxy
+get logon server via diff methods
+$host 
+check language 
+SMB version, check SMB - singing 
+WinRM Enabled and settings
+LDAP Signing if LDAP enabled 
 remove blank linkes 
 cached logons
 amsi settings 
 more windef settings
 last updated 
-WinRM 
+WinRM enabled?
 Bitlocker
 another way to get av - program files grep 
 smb - enabled , versions, signing 
@@ -46,6 +54,12 @@ maybe have a focused sysinfo and a full
 add in applocker chceck.  see whats blocked  - $a = Get-AppLockerPolicy -Effective; $a.rulecollections
 
 
+
+Resources
+----------------
+https://github.com/S3cur3Th1sSh1t/Cobaltstrike-Aggressor-Scripts-Collection/blob/master/EnumKit/scripts/HostRecon.ps1
+	good av checks
+https://github.com/S3cur3Th1sSh1t/Cobaltstrike-Aggressor-Scripts-Collection/blob/master/EnumKit/scripts/HostEnum.ps1
 
 
 
@@ -190,16 +204,91 @@ Hyper-V Requirements:      VM Monitor Mode Extensions: Yes
                            Data Execution Prevention Available: Yes
 
 
-
-
 #>
-#########################################################################################################
+
+
+function Set-WindowSize {
+
+<#
+.SYNOPSIS
+Sets the current console window to a specified size
+ 
+.DESCRIPTION
+Sets the current console window to a specified size.
+Alternatively it can be maximized.
+ 
+.EXAMPLE
+PS> Set-WindowSize -Height 60 -Width 130
+Sets the console window to the given dimensions
+ 
+.EXAMPLE
+PS> Set-WindowSize -Maximize
+Sets the console window to the maximum size available
+ 
+.NOTES
+    When downsizing the contents of the buffer are flushed. If there's content wider thant the
+    target content, it will be lost
+ 
+    This function is only available in Windows
+ 
+#>
+    [CmdletBinding(DefaultParameterSetName = "MaxSize")]
+    param(
+        [Parameter(Mandatory, ParameterSetName = "CustomSize")]
+        [ValidateScript({ $_ -gt 0})]
+        # Target Height
+        [int] $Height = 50,
+
+        [Parameter(Mandatory, ParameterSetName = "CustomSize")]
+        [ValidateScript({ $_ -gt 0})]
+        # Target Width
+        [int] $Width = 120,
+
+        [Parameter(ParameterSetName = "MaxSize")]
+        # Maximize the window
+        [switch] $Maximize = $false
+        )
+    
+    $maxHeight = $Host.UI.RawUI.MaxPhysicalWindowSize.Height 
+    $maxWidth = $Host.UI.RawUI.MaxPhysicalWindowSize.Width 
+    if ($Maximize) {
+        $Height = $maxHeight
+        $Width  = $maxWidth - 2
+    }
+
+    $consoleBuffer = $Host.UI.RawUI.BufferSize 
+    $consoleWindow = $Host.UI.RawUI.WindowSize 
+ 
+    $consoleWindow.Height = ($Height) 
+    $consoleWindow.Width = ($Width) 
+
+    #$consoleBuffer.Height = (9999)
+    $consoleBuffer.Height = (9000)
+    $consoleBuffer.Width = ($Width) 
+
+    $Host.UI.RawUI.FlushInputBuffer()
+    $Host.UI.RawUI.set_bufferSize($consoleBuffer) 
+    $Host.UI.RawUI.set_windowSize($consoleWindow) 
+}
+function cut {
+  param(
+    [Parameter(ValueFromPipeline=$True)] [string]$inputobject,
+    [string]$delimiter='\s+',
+    [string[]]$field
+  )
+
+  process {
+    if ($field -eq $null) { $inputobject -split $delimiter } else {
+      ($inputobject -split $delimiter)[$field] }
+  }
+}
+
 
 function sysinfo {
 $ProgressPreference = 'SilentlyContinue'	
 	
 $os_info = gwmi Win32_OperatingSystem
-$IsHighIntegrity = [bool]([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator") 2> $null    
+  
 $Hostname		= $ENV:COMPUTERNAME 2> $null      
 $IPv4			= (@([System.Net.Dns]::GetHostAddresses($ENV:HOSTNAME)) | %{$_.IPAddressToString}|findstr /v :) -join ", " 2> $null        		
 $IPv6			= (@([System.Net.Dns]::GetHostAddresses($ENV:HOSTNAME)) | %{$_.IPAddressToString}|findstr :) -join ", " 2> $null       
@@ -210,7 +299,18 @@ $Arch			= $os_info.OSArchitecture 2> $null
 $UserName		= $(whoami)
 $LocalUsers = $($(net user | select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
 #$DomainUsers = $($(net user /domain 2>$null| select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "      
-$LoggedinUsers = $((Get-CimInstance -ClassName Win32_ComputerSystem).Username | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "    
+
+  
+  
+
+# Logging in Users
+$(query user | %{ $_.Split('')[0,1]} | Select-String -NotMatch USERNAME) | where{$_ -ne " "} > C:\windows\temp\temp; cat C:\windows\temp\temp| ForEach-object { $_.TrimEnd() } | where{$_ -ne ""} > C:\windows\temp\loggedinusers.txt
+#$LoggedinUsers = $((Get-CimInstance -ClassName Win32_ComputerSystem).Username | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "    
+$LoggedInUsersCount = (Get-Content  C:\windows\temp\loggedinusers.txt| Measure-Object –Line).Lines
+$LoggedinUsers = $(cat C:\windows\temp\loggedinusers.txt | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
+
+
+        
                   
 $LogonServer		= $ENV:LOGONSERVER          
 $PSVersion       = $PSVersionTable.PSVersion.ToString()
@@ -281,10 +381,12 @@ $IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual") 2>
 
 #winrm
 $WinRMENabled = [bool](Test-WSMan -ComputerName . -ErrorAction SilentlyContinue) 2> $null
+$WinRMTrustedHosts = = (Get-Item WSMan:\localhost\Client\TrustedHosts).value
+$WinRMPort = (Get-Item WSMan:\localhost\listener\*\Port).value 2> $null
+
 
 # chached logons 
 $CachedLogons=$($(Get-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name CachedLogonsCount | findstr CachedLogonsCount)-replace (' ')) -Split ':' | findstr /v CachedLogonsCount 2> $null
-
 
 #########################################################################################################
 
@@ -300,14 +402,14 @@ Write-Output "Arch:|$Arch" >> $sysinfo
 Write-Output "Computer Role:|$ComputerRole" >> $sysinfo
 Write-Output "Is Virtual:|$IsVirtual" >> $sysinfo
 Write-Output "Whoami:|$UserName" >> $sysinfo
-Write-Output "Logged in Users:|$LoggedinUsers" >> $sysinfo
+Write-Output "Logged in Users:|[$LoggedInUsersCount] $LoggedInUsers" >> $sysinfo
 Write-Output "Admin Shell?:|$ShellIsAdmin"  >> $sysinfo
 Write-Output "Current Dir:|$CurrentDir" >> $sysinfo
 Write-Output "IPv4:|$IPv4" >> $sysinfo
 Write-Output "IPv6:|$IPv6" >> $sysinfo
 Write-Output "Domain:|$env:USERDNSDOMAIN" >> $sysinfo
 Write-Output "Logon Server:|$Logonserver" >> $sysinfo
-Write-Output "Integrity Level:|$integritylevel (Is High Intergirty: $IsHighIntegrity)">> $sysinfo
+Write-Output "Integrity Level:|$integritylevel">> $sysinfo
 Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
 Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
 Write-Output "Bitlocker:|C:/ $BitlockerStatus ($BitlockerPercentage)" >> $sysinfo
@@ -324,7 +426,7 @@ Write-Output "Cached Logons:|$CachedLogons" >> $sysinfo
 Write-Output "Lockout - Threshold:|$LockoutThreshold"  >> $sysinfo
 Write-Output "Lockout - Duration:|$LockoutDuration mins"  >> $sysinfo
 Write-Output "Lockout - Window:|$LockoutWindow mins"  >> $sysinfo
-Write-Output "WinRM Enabled:|$WinRMENabled" >> $sysinfo
+Write-Output "WinRM Enabled:|$WinRMENabled (Port: $WinRMPort)(TrustedHosts: $WinRMTrustedHost)" >> $sysinfo
 Write-Output "RDP Enabled:|$RDPEnabled (FDenyTSConnections:$FDenyTSConnections) " >> $sysinfo
 Write-Output "RDP Users:|$RDPUsers"  >> $sysinfo
 Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
@@ -337,11 +439,16 @@ Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserA
 
 # print table 
 $P = Import-Csv -Path "$sysinfo" -Delimiter '|'
-$P  | Format-Table -HideTableHeaders | Out-String -Width 150 | ft 
+$P  | Format-Table -HideTableHeaders | Out-String -Width 250 | ft 
 
 
 # cleanup
 Remove-Item C:\windows\temp\sysinfo 2> $null > $null
 Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
 Remove-Item C:\windows\temp\avtemp 2> $null > $null
+Remove-Item C:\windows\temp\loggedinusers.txt 2> $null > $null
 }
+
+
+Set-WindowSize -Height 200 -Width 400
+sysinfo
