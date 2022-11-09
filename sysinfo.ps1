@@ -23,6 +23,7 @@ sort high integrity make it look better
 section is suished on CS
 print out local and domain groups of the current user 
 Tidy the output
+check wmi remote enabled
 Proxy
 get logon server via diff methods
 $host 
@@ -54,6 +55,12 @@ maybe have a focused sysinfo and a full
 add in applocker chceck.  see whats blocked  - $a = Get-AppLockerPolicy -Effective; $a.rulecollections
 
 
+add in more checks for RDP
+;Get-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" | findstr fDenyTSConnections;Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp\' | findstr /c:"SecurityLayer" /c:"UserAuthentication";Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters' -Name AllowEncryptionOracle | findstr AllowEncryptionOracle;net localgroup "Remote Desktop Users"
+
+
+
+
 
 Resources
 ----------------
@@ -67,7 +74,12 @@ https://github.com/S3cur3Th1sSh1t/Cobaltstrike-Aggressor-Scripts-Collection/blob
 
 
 
+Seatbelt
 
+  ConsentPromptBehaviorAdmin     : 5 - PromptForNonWindowsBinaries
+  EnableLUA (Is UAC enabled?)    : 1
+  LocalAccountTokenFilterPolicy  : 
+  FilterAdministratorToken       : 0
 
 
 
@@ -285,14 +297,11 @@ function cut {
 
 
 function sysinfo {
-
-$ProgressPreference = 'SilentlyContinue'
-$ErrorActionPreference = ‘SilentlyContinue’	
-Set-WindowSize -Height 200 -Width 400	
-	
-	
 $ProgressPreference = 'SilentlyContinue'	
-	
+$ErrorActionPreference = ‘SilentlyContinue’	
+
+#Set-WindowSize -Height 200 -Width 600	
+		
 $os_info = gwmi Win32_OperatingSystem
   
 $Hostname		= $ENV:COMPUTERNAME 2> $null      
@@ -330,6 +339,11 @@ $ShellIsAdmin = ${env:=::} -eq $null
 $RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 1){"Disabled"} Else {"Enabled"} 2> $null
 $FDenyTSConnections = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections 2> $null
 $RDPUsers = $($(net localgroup "Remote Desktop Users" | select -Skip 6 | findstr /v "The command completed") -Split ' ' | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", " 2> $null
+
+$RDPSecurityLayer = $(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp\' | findstr SecurityLayer) -replace '\s',''
+$RDPUserAuthentication =$(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp\' | findstr UserAuthentication) -replace '\s',''
+$RDPAllowEncryptionOracle = $(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters' -Name AllowEncryptionOracle | findstr AllowEncryptionOracle) -replace '\s',''
+
 
 $CurrentDir=$(Get-Location |%{$_.Path}) 2> $null
 
@@ -394,6 +408,12 @@ $WinRMPort = (Get-Item WSMan:\localhost\listener\*\Port).value 2> $null
 # chached logons 
 $CachedLogons=$($(Get-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name CachedLogonsCount | findstr CachedLogonsCount)-replace (' ')) -Split ':' | findstr /v CachedLogonsCount 2> $null
 
+# proxy
+$ProxyEnable = $[bool](Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings").ProxyEnable
+$ProxyServer = $(Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings").ProxyServer
+$ProxyNetSH= $(netsh winhttp show proxy | findstr "Proxy Server")
+
+
 #########################################################################################################
 
 $sysinfo="C:\windows\temp\sysinfo"
@@ -415,6 +435,7 @@ Write-Output "IPv4:|$IPv4" >> $sysinfo
 Write-Output "IPv6:|$IPv6" >> $sysinfo
 Write-Output "Domain:|$env:USERDNSDOMAIN" >> $sysinfo
 Write-Output "Logon Server:|$Logonserver" >> $sysinfo
+Write-Output "Proxy Server:|$ProxyEnable ($ProxyServer)"  >> $sysinfo
 Write-Output "Integrity Level:|$integritylevel">> $sysinfo
 Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
 Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
@@ -433,10 +454,12 @@ Write-Output "Lockout - Threshold:|$LockoutThreshold"  >> $sysinfo
 Write-Output "Lockout - Duration:|$LockoutDuration mins"  >> $sysinfo
 Write-Output "Lockout - Window:|$LockoutWindow mins"  >> $sysinfo
 Write-Output "WinRM Enabled:|$WinRMENabled (Port: $WinRMPort)(TrustedHosts: $WinRMTrustedHost)" >> $sysinfo
-Write-Output "RDP Enabled:|$RDPEnabled (FDenyTSConnections:$FDenyTSConnections) " >> $sysinfo
+Write-Output "RDP Enabled:|$RDPEnabled (FDenyTSConnections:$FDenyTSConnections)($RDPSecurityLayer)($RDPUserAuthentication)($RDPAllowEncryptionOracle)" >> $sysinfo
 Write-Output "RDP Users:|$RDPUsers"  >> $sysinfo
-Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
-Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> $sysinfo
+#Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
+#Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> $sysinfo
+
+
 
 
 
@@ -457,4 +480,3 @@ Remove-Item C:\windows\temp\loggedinusers.txt 2> $null > $null
 
 
 
-Set-WindowSize -Height 200 -Width 800
