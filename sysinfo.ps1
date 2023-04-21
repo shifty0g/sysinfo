@@ -1,4 +1,4 @@
-﻿$NAME="sysinfo"
+$NAME="sysinfo"
 $VERSION="0.2"
 $DATE="25-09-22"
 
