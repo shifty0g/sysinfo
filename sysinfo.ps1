@@ -1,6 +1,6 @@
 $NAME="sysinfo"
 $VERSION="0.2"
-$DATE="25-09-22"
+$DATE="22-11-23"
 
 $ProgressPreference = 'SilentlyContinue'
 $ErrorActionPreference = ‘SilentlyContinue’
@@ -12,8 +12,10 @@ Sysinfo for Hackers
 Useage
 ---------
 Import-Module .\sysinfo.ps1
-sysinfo 
+sysinfo
 
+
+.\sysinfo.ps1
 
 
 To Do 
@@ -24,7 +26,6 @@ section is suished on CS
 print out local and domain groups of the current user 
 Tidy the output
 check wmi remote enabled
-Proxy
 get logon server via diff methods
 $host 
 check language 
@@ -32,7 +33,6 @@ SMB version, check SMB - singing
 WinRM Enabled and settings
 LDAP Signing if LDAP enabled 
 remove blank linkes 
-cached logons
 amsi settings 
 more windef settings
 last updated 
@@ -308,10 +308,12 @@ $Hostname		= $ENV:COMPUTERNAME 2> $null
 $IPv4			= (@([System.Net.Dns]::GetHostAddresses($ENV:HOSTNAME)) | %{$_.IPAddressToString}|findstr /v :) -join ", " 2> $null        		
 $IPv6			= (@([System.Net.Dns]::GetHostAddresses($ENV:HOSTNAME)) | %{$_.IPAddressToString}|findstr :) -join ", " 2> $null       
 $OS				= $os_info.caption + $os_info.CSDVersion 2> $null
-$OSBuild			= $os_info.Version 2> $null 
+$OSBuild		= $os_info.Version 2> $null 
 $Arch			= $os_info.OSArchitecture 2> $null     
 
 $UserName		= $(whoami)
+$UserGroups		= $((net user $env:USERNAME | Select-String -Pattern "Local Group Memberships").ToString() -replace "Local Group Memberships\s*", "" -split '\s+' -replace '^\*', '' -replace ',$' -join ', ')
+
 $LocalUsers = $($(net user | select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
 #$DomainUsers = $($(net user /domain 2>$null| select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "      
 
@@ -330,13 +332,18 @@ $LoggedinUsers = $(cat C:\windows\temp\loggedinusers.txt | ForEach-object { $_.T
 $LogonServer		= $ENV:LOGONSERVER          
 $PSVersion       = $PSVersionTable.PSVersion.ToString()
 $PSCompatibleVersions    = ($PSVersionTable.PSCompatibleVersions) -join ', '
-$LSASSPROTECTION = If((Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -EA 0).RunAsPPL -eq 1){"Enabled"} Else {"Disabled"}
+$PSCLM = $ExecutionContext.SessionState.LanguageMode
+
+$LSSASRunAsPPL = If((Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -EA 0).RunAsPPL -eq 1){"1"} Else {"0"}
+$LSSASRunAsPPLBoot = If((Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control\Lsa -EA 0).RunAsPPLBoot -eq 1){"1"} Else {"0"}
+
+
 $LAPS            = If((Get-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft Services\AdmPwd" -EA 0).AdmPwdEnabled -eq 1){"Enabled"} Else {"Disabled"}
 
 $ShellIsAdmin = ${env:=::} -eq $null
 
 # RDP
-$RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 1){"Disabled"} Else {"Enabled"} 2> $null
+$RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 1){"Enabled"} Else {"Disabled"} 2> $null
 $FDenyTSConnections = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections 2> $null
 $RDPUsers = $($(net localgroup "Remote Desktop Users" | select -Skip 6 | findstr /v "The command completed") -Split ' ' | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", " 2> $null
 
@@ -377,11 +384,14 @@ $NLAUserAuthentication =$([bool]$(Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlS
 
 
 # Password & Lockout  
-$MinimumPasswordLength = $($(net accounts | findstr "length") -replace (' ')) -Split ':' | findstr /v Mini 2> $null
+$MinimumPasswordLength = $($(net accounts | findstr "length") -replace (' ')) -Split ':' | findstr /v Minimum 2> $null
+
+
 $LockoutThreshold = $($(net accounts | findstr "threshold") -replace (' ')) -Split ':' | findstr /v threshold 2> $null
 $LockoutDuration = $($(net accounts | findstr "duration") -replace (' ')) -Split ':' | findstr /v duration 2> $null
 $LockoutWindow = $($(net accounts | findstr "window") -replace (' ')) -Split ':' | findstr /v window 2> $null
 
+$DOMAINORWG = $(if ((Get-WmiObject Win32_ComputerSystem).PartOfDomain) { Write-Output "$((Get-WmiObject Win32_ComputerSystem).Domain) (Domain)" } else { Write-Output "$((Get-WmiObject Win32_ComputerSystem).Workgroup) (workgroup)" })
 
 $ComputerRole = $($(net accounts | findstr "role") -replace (' ')) -Split ':' | findstr /v role 2> $null
 
@@ -397,21 +407,32 @@ $BitlockerStatus=$($(echo $Bitlocker | Select-String "Conversion Status:") -Spli
 $BitlockerPercentage=$($($bitlocker | Select-String "Percentage Encrypted:") -Split ':'| findstr /v "Percentage Encrypted").Trim(" ") 2> $null
 
 # check if VM
-$IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual") 2> $null
+$IsVirtual = $($model = (Get-WmiObject Win32_ComputerSystem).Model; $result = $model -match 'VMWare|Hyper|Virtual'; if ($result) { Write-Output "Virtual Machine - $model" } else { Write-Output "Physical Machine - $model" })
+#$IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual") 2> $null
+
+
+# Check applocker
+$CheckApplocker = $(if ((Get-Service -Name "AppIDSvc").Status -eq 'Running') { Write-Output "Enabled" } else { Write-Output "Disabled" })
+
 
 #winrm
 $WinRMENabled = [bool](Test-WSMan -ComputerName . -ErrorAction SilentlyContinue) 2> $null
-$WinRMTrustedHosts = = (Get-Item WSMan:\localhost\Client\TrustedHosts).value
-$WinRMPort = (Get-Item WSMan:\localhost\listener\*\Port).value 2> $null
+#$WinRMTrustedHosts = (Get-Item WSMan:\localhost\Client\TrustedHosts).value
+#$WinRMPort = (Get-Item WSMan:\localhost\listener\*\Port).value 2> $null
 
 
 # chached logons 
 $CachedLogons=$($(Get-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name CachedLogonsCount | findstr CachedLogonsCount)-replace (' ')) -Split ':' | findstr /v CachedLogonsCount 2> $null
 
 # proxy
-$ProxyEnable = $[bool](Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings").ProxyEnable
-$ProxyServer = $(Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings").ProxyServer
-$ProxyNetSH= $(netsh winhttp show proxy | findstr "Proxy Server")
+$ISPROXY = $(if ($proxy = (Get-ItemProperty -Path 'Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings').ProxyServer) { Write-Output "$proxy" } else { Write-Output "Not Configured" })
+#$ProxyEnable = $[bool](Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings").ProxyEnable
+#$ProxyServer = $(Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings").ProxyServer
+#$ProxyNetSH= $(netsh winhttp show proxy | findstr "Proxy Server")
+
+
+$SMBRequireSecuritySignature = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters").RequireSecuritySignature
+$SMBEnableSecuritySignature = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters").EnableSecuritySignature
 
 
 #########################################################################################################
@@ -422,42 +443,66 @@ $sysinfo="C:\windows\temp\sysinfo"
 Write-Output "BLANK|BLANKy" >  $sysinfo  # this gets ignored
 
 Write-Output "Hostname:|$Hostname" >> $sysinfo
-Write-Output "OS:|$OS" >> $sysinfo
-Write-Output "OS Build:|$OSBuild" >> $sysinfo
+Write-Output "OS:|$OS (Build:$OSBuild)" >> $sysinfo
 Write-Output "Arch:|$Arch" >> $sysinfo
 Write-Output "Computer Role:|$ComputerRole" >> $sysinfo
 Write-Output "Is Virtual:|$IsVirtual" >> $sysinfo
 Write-Output "Whoami:|$UserName" >> $sysinfo
+Write-Output "Local Group Meberships:|$UserGroups" >> $sysinfo
+Write-Output "Local Users:|$LocalUsers" >> $sysinfo
 Write-Output "Logged in Users:|[$LoggedInUsersCount] $LoggedInUsers" >> $sysinfo
 Write-Output "Admin Shell?:|$ShellIsAdmin"  >> $sysinfo
 Write-Output "Current Dir:|$CurrentDir" >> $sysinfo
 Write-Output "IPv4:|$IPv4" >> $sysinfo
 Write-Output "IPv6:|$IPv6" >> $sysinfo
-Write-Output "Domain:|$env:USERDNSDOMAIN" >> $sysinfo
+Write-Output "Domain:|$DOMAINORWG" >> $sysinfo
 Write-Output "Logon Server:|$Logonserver" >> $sysinfo
-Write-Output "Proxy Server:|$ProxyEnable ($ProxyServer)"  >> $sysinfo
+
+Write-Output "Proxy Server:|$ISPROXY"  >> $sysinfo
+
+#Write-Output "Proxy Server:|$ProxyEnable ($ProxyServer)"  >> $sysinfo
+
 Write-Output "Integrity Level:|$integritylevel">> $sysinfo
 Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
 Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
 Write-Output "Bitlocker:|C:/ $BitlockerStatus ($BitlockerPercentage)" >> $sysinfo
+
+
 Write-Output "Windows Firewall:|Private:$Private, Domain:$Domain, Public:$Public" >> $sysinfo
 Write-Output "AntiVirus:|$av">> $sysinfo
-Write-Output "LSASS Proteciton:|$LSASSPROTECTION" >> $sysinfo
+
+
+Write-Output "LSASS Proteciton:| RunAsPPL:$LSSASRunAsPPL, RunAsPPLBoot:$LSSASRunAsPPLBoot" >> $sysinfo
+                                
 Write-Output "Dotnet Verions:|$dotnetversion" >> $sysinfo
+
 Write-Output "PS Verion:|$PSVersion" >> $sysinfo
 Write-Output "PS Compatibly:|$PSCompatibleVersions">> $sysinfo
 Write-Output "PS Execution Policy:|$(Get-ExecutionPolicy)">> $sysinfo
+Write-Output "PS CLM:|$PSCLM" >> $sysinfo
+
+
+Write-Output "WinRM Enabled:|$WinRMENabled" >> $sysinfo
+#Write-Output "WinRM Enabled:|$WinRMENabled (Port: $WinRMPort)(TrustedHosts: $WinRMTrustedHost)" >> $sysinfo
+
+Write-Output "RDP Enabled:|$RDPEnabled - FDenyTSConnections:$FDenyTSConnections, $RDPSecurityLayer, $RDPUserAuthentication, $RDPAllowEncryptionOracle" >> $sysinfo
+Write-Output "RDP Group Users:|$RDPUsers"  >> $sysinfo
+#Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
+#Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> $sysinfo
+
+Write-Output "Applocker:|$CheckApplocker" >> $sysinfo
+
 Write-Output "Password - Minimum Length:|$MinimumPasswordLength characters"  >> $sysinfo
 Write-Output "LAPS:|$LAPS" >> $sysinfo
-Write-Output "Cached Logons:|$CachedLogons" >> $sysinfo
+
+
+Write-Output "SMB:|RequireSecuritySignature:$SMBRequireSecuritySignature, EnableSecuritySignature:$SMBEnableSecuritySignature"  >> $sysinfo
+
+
 Write-Output "Lockout - Threshold:|$LockoutThreshold"  >> $sysinfo
 Write-Output "Lockout - Duration:|$LockoutDuration mins"  >> $sysinfo
 Write-Output "Lockout - Window:|$LockoutWindow mins"  >> $sysinfo
-Write-Output "WinRM Enabled:|$WinRMENabled (Port: $WinRMPort)(TrustedHosts: $WinRMTrustedHost)" >> $sysinfo
-Write-Output "RDP Enabled:|$RDPEnabled (FDenyTSConnections:$FDenyTSConnections)($RDPSecurityLayer)($RDPUserAuthentication)($RDPAllowEncryptionOracle)" >> $sysinfo
-Write-Output "RDP Users:|$RDPUsers"  >> $sysinfo
-#Write-Output "CredSSP (AllowEncryptionOracle):|$CredSSP (2 = Vulnerable, 0 = Forced, 1 = Mitigated)" >> $sysinfo
-#Write-Output "NLA:|SecurityLayer:$NLASecurityLayer, UserAuthentication:$NLAUserAuthentication" >> $sysinfo
+Write-Output "Cached Logons:|$CachedLogons" >> $sysinfo
 
 
 
@@ -480,3 +525,4 @@ Remove-Item C:\windows\temp\loggedinusers.txt 2> $null > $null
 
 
 
+sysinfo
