@@ -3,7 +3,7 @@ $VERSION="0.2"
 $DATE="22-11-23"
 
 $ProgressPreference = 'SilentlyContinue'
-$ErrorActionPreference = ‘SilentlyContinue’
+$ErrorActionPreference = 'SilentlyContinue'
 
 <#
 Sysinfo for Hackers 
@@ -296,7 +296,7 @@ function cut {
 
 function sysinfo {
 $ProgressPreference = 'SilentlyContinue'	
-$ErrorActionPreference = ‘SilentlyContinue’	
+$ErrorActionPreference = 'SilentlyContinue'
 
 #Set-WindowSize -Height 200 -Width 600	
 		
@@ -310,7 +310,7 @@ $OSBuild		= $os_info.Version 2> $null
 $Arch			= $os_info.OSArchitecture 2> $null     
 
 $UserName		= $(whoami)
-$UserGroups		= $((net user $env:USERNAME | Select-String -Pattern "Local Group Memberships").ToString() -replace "Local Group Memberships\s*", "" -split '\s+' -replace '^\*', '' -replace ',$' -join ', ')
+$UserGroups		= $((net user $env:USERNAME 2> $null | Select-String -Pattern "Local Group Memberships").ToString() -replace "Local Group Memberships\s*", "" -split '\s+' -replace '^\*', '' -replace ',$' -join ', ')
 
 $LocalUsers = $($(net user | select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
 #$DomainUsers = $($(net user /domain 2>$null| select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "      
@@ -321,13 +321,14 @@ $LocalUsers = $($(net user | select -Skip 4| findstr /v "The command completed")
 # Logging in Users
 $(query user | %{ $_.Split('')[0,1]} | Select-String -NotMatch USERNAME) | where{$_ -ne " "} > C:\windows\temp\temp; cat C:\windows\temp\temp| ForEach-object { $_.TrimEnd() } | where{$_ -ne ""} > C:\windows\temp\loggedinusers.txt
 #$LoggedinUsers = $((Get-CimInstance -ClassName Win32_ComputerSystem).Username | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "    
-$LoggedInUsersCount = (Get-Content  C:\windows\temp\loggedinusers.txt| Measure-Object –Line).Lines
-$LoggedinUsers = $(cat C:\windows\temp\loggedinusers.txt | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
+$loggedInUsers = Get-Content C:\windows\temp\loggedinusers.txt | ForEach-Object { $_.TrimEnd() } | Where-Object {$_ -ne ""} -join " "
+$numberOfLines = (Get-Content C:\windows\temp\loggedinusers.txt | Measure-Object -Line).Lines
+
 
 
         
                   
-$LogonServer		= $ENV:LOGONSERVER          
+$LogonServer = $ENV:LOGONSERVER          
 $PSVersion       = $PSVersionTable.PSVersion.ToString()
 $PSCompatibleVersions    = ($PSVersionTable.PSCompatibleVersions) -join ', '
 $PSCLM = $ExecutionContext.SessionState.LanguageMode
@@ -354,12 +355,23 @@ $CurrentDir=$(Get-Location |%{$_.Path}) 2> $null
 
 $CredSSP=$($(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\CredSSP\Parameters' -Name AllowEncryptionOracle 2> $null | findstr AllowEncryptionOracle) -replace (' ')) -Split ':' | findstr /v Oracle2> $null      
 
-# UAC - Integrity 
-$UAC             = If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).EnableLUA -eq 1){"Enabled"} Else {"Disabled (UAC is Disabled)"} 2> $null
+# UAC  
+$UACConsentPromptBehaviorAdmin = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").ConsentPromptBehaviorAdmin
+$UACConsentPromptBehaviorUser = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").ConsentPromptBehaviorUser
+$UACCEnableInstallerDetection = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").EnableInstallerDetection
+$UACEnableLUA = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").EnableLUA
+$UACEnableVirtualization = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").EnableVirtualization
+$UACPromptOnSecureDesktop = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").PromptOnSecureDesktop
+$UACValidateAdminCodeSignatures = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").ValidateAdminCodeSignatures
+$UACFilterAdministratorToken = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").FilterAdministratorToken
+$UACLocalAccountTokenFilterPolicy = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System").LocalAccountTokenFilterPolicy
+
+# LocalAccountTokenFilterPolicy = 1 disables local account token filtering for all non-rid500 accounts
+#$UACLocalAccountTokenFilterPolicy    = If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).LocalAccountTokenFilterPolicy -eq 1){"Disabled (PTH likely w/ non-RID500 Local Admins)"} Else {"Enabled (Remote Administration restricted for non-RID500 Local Admins)"} 2> $null
+#$UACFilterAdministratorToken     	= If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).FilterAdministratorToken -eq 1){"Enabled (RID500 protected)"} Else {"Disabled (PTH likely with RID500 Account)"} 2> $null
+
 $integritylevel=$($(whoami /groups | select-string Label) -Split '\\' | Select-String - | findstr Level).Substring(0,22) -replace "`n",", " -replace "`r",", " 2> $null
- # LocalAccountTokenFilterPolicy = 1 disables local account token filtering for all non-rid500 accounts
-$UACLocalAccountTokenFilterPolicy    = If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).LocalAccountTokenFilterPolicy -eq 1){"Disabled (PTH likely w/ non-RID500 Local Admins)"} Else {"Enabled (Remote Administration restricted for non-RID500 Local Admins)"} 2> $null
-$UACFilterAdministratorToken     	= If((Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System -EA 0).FilterAdministratorToken -eq 1){"Enabled (RID500 protected)"} Else {"Disabled (PTH likely with RID500 Account)"} 2> $null
+
 $HighIntegrity           			= $IsHighIntegrity 2> $null
 		
 
@@ -405,7 +417,9 @@ $BitlockerStatus=$($(echo $Bitlocker | Select-String "Conversion Status:") -Spli
 $BitlockerPercentage=$($($bitlocker | Select-String "Percentage Encrypted:") -Split ':'| findstr /v "Percentage Encrypted").Trim(" ") 2> $null
 
 # check if VM
-$IsVirtual = $($model = (Get-WmiObject Win32_ComputerSystem).Model; $result = $model -match 'VMWare|Hyper|Virtual'; if ($result) { Write-Output "Virtual Machine - $model" } else { Write-Output "Physical Machine - $model" })
+$biosVersion = (Get-WmiObject Win32_BIOS).Version
+#$IsVirtual = $($model = (Get-WmiObject Win32_ComputerSystem).Model; $result = $model -match 'VMWare|Hyper|Virtual'; if ($result) { Write-Output "Virtual Machine - $model" } else { Write-Output "Physical Machine - $model" })
+#$IsVirtual = $($model = (Get-WmiObject Win32_ComputerSystem).Model; $result = $model -match 'VMWare|Hyper|Virtual'; if ($result) { Write-Output "Virtual Machine - $model" } else { Write-Output "Physical Machine - $model" })
 #$IsVirtual = ((Get-WmiObject Win32_ComputerSystem).model).Contains("Virtual") 2> $null
 
 
@@ -444,7 +458,11 @@ Write-Output "Hostname:|$Hostname" >> $sysinfo
 Write-Output "OS:|$OS (Build:$OSBuild)" >> $sysinfo
 Write-Output "Arch:|$Arch" >> $sysinfo
 Write-Output "Computer Role:|$ComputerRole" >> $sysinfo
-Write-Output "Is Virtual:|$IsVirtual" >> $sysinfo
+
+Write-Output "BIOS Version:|$biosVersion" >> $sysinfo
+
+#Write-Output "Is Virtual:|$IsVirtual" >> $sysinfo
+
 Write-Output "Whoami:|$UserName" >> $sysinfo
 Write-Output "Local Group Meberships:|$UserGroups" >> $sysinfo
 Write-Output "Local Users:|$LocalUsers" >> $sysinfo
@@ -454,20 +472,28 @@ Write-Output "Current Dir:|$CurrentDir" >> $sysinfo
 Write-Output "IPv4:|$IPv4" >> $sysinfo
 Write-Output "IPv6:|$IPv6" >> $sysinfo
 Write-Output "Domain:|$DOMAINORWG" >> $sysinfo
-Write-Output "Logon Server:|$Logonserver" >> $sysinfo
+Write-Output "Logon Server:|$LogonServer" >> $sysinfo
 
 Write-Output "Proxy Server:|$ISPROXY"  >> $sysinfo
 
 #Write-Output "Proxy Server:|$ProxyEnable ($ProxyServer)"  >> $sysinfo
 
 Write-Output "Integrity Level:|$integritylevel">> $sysinfo
-Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
-Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
+
+
+
 Write-Output "Bitlocker:|C:/ $BitlockerStatus ($BitlockerPercentage)" >> $sysinfo
 
 
 Write-Output "Windows Firewall:|Private:$Private, Domain:$Domain, Public:$Public" >> $sysinfo
 Write-Output "AntiVirus:|$av">> $sysinfo
+
+
+Write-Output "UAC:|LocalAccountTokenFilterPolicy:$UACLocalAccountTokenFilterPolicy, FilterAdministratorToken:$UACFilterAdministratorToken, EnableLUA:$UACEnableLUA, EnableVirtualization:$UACEnableVirtualization, EnableInstallerDetection:$UACCEnableInstallerDetection," >> $sysinfo
+Write-Output "|ConsentPromptBehaviorAdmin:$UACConsentPromptBehaviorAdmin, ConsentPromptBehaviorUser:$UACConsentPromptBehaviorUser, PromptOnSecureDesktop:$UACPromptOnSecureDesktop, ValidateAdminCodeSignatures:$UACValidateAdminCodeSignatures">> $sysinfo
+#Write-Output "UAC LocalAccountTokenFilterPolicy:|$UACLocalAccountTokenFilterPolicy">> $sysinfo
+#Write-Output "UAC FilterAdministratorToken:|$UACFilterAdministratorToken" >> $sysinfo 
+
 
 
 Write-Output "LSASS Proteciton:| RunAsPPL:$LSSASRunAsPPL, RunAsPPLBoot:$LSSASRunAsPPLBoot" >> $sysinfo
@@ -523,4 +549,3 @@ Remove-Item C:\windows\temp\loggedinusers.txt 2> $null > $null
 
 
 
-sysinfo
