@@ -12,10 +12,8 @@ Sysinfo for Hackers
 Useage
 ---------
 Import-Module .\sysinfo.ps1
-sysinfo
+sysinfo 
 
-
-.\sysinfo.ps1
 
 
 To Do 
