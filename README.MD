@@ -31,7 +31,7 @@ Admin Shell?:              False
 Current Dir:               C:\Windows\system32
 IPv4:                      10.10.123.102
 IPv6:                      ::1
-Domain:                    husk.dog (Domain)
+Domain:                    husky.dog (Domain)
 Logon Server:              \\DC1
 Proxy Server:              squid.husky.dog:3128
 Integrity Level:           Medium Mandatory Level
