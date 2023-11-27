@@ -315,7 +315,8 @@ $UserGroups		= $((net user $env:USERNAME 2> $null | Select-String -Pattern "Loca
 $LocalUsers = $($(net user | select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "
 #$DomainUsers = $($(net user /domain 2>$null| select -Skip 4| findstr /v "The command completed") -Split ' '  | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", "      
 
-  
+$whoamiOutput = whoami /priv
+$whoamiprivs=($whoamiOutput -split "`n" | Where-Object {$_ -match "Enabled"} | ForEach-Object {($_ -split "\s+")[0]}) -join ", "
   
 
 # Logging in Users
@@ -339,10 +340,13 @@ $LSSASRunAsPPLBoot = If((Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Control
 
 $LAPS            = If((Get-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft Services\AdmPwd" -EA 0).AdmPwdEnabled -eq 1){"Enabled"} Else {"Disabled"}
 
-$ShellIsAdmin = ${env:=::} -eq $null
+
+#$ShellIsAdmin = ${env:=::} -eq $null
+$ShellIsAdmin = [bool](([System.Security.Principal.WindowsIdentity]::GetCurrent()).groups -match "S-1-5-32-544")
+
 
 # RDP
-$RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 1){"Enabled"} Else {"Disabled"} 2> $null
+$RDPEnabled = If((Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections -eq 0){"Enabled"} Else {"Disabled"} 2> $null
 $FDenyTSConnections = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -EA 1).FDenyTSConnections 2> $null
 $RDPUsers = $($(net localgroup "Remote Desktop Users" | select -Skip 6 | findstr /v "The command completed") -Split ' ' | ForEach-object { $_.TrimEnd() } | where{$_ -ne ""}) -join ", " 2> $null
 
@@ -374,6 +378,9 @@ $integritylevel=$($(whoami /groups | select-string Label) -Split '\\' | Select-S
 
 $HighIntegrity           			= $IsHighIntegrity 2> $null
 		
+
+
+
 
 # Firewall 
 $regkey = "HKLM:\System\ControlSet001\Services\SharedAccess\Parameters\FirewallPolicy"
@@ -455,30 +462,35 @@ $sysinfo="C:\windows\temp\sysinfo"
 Write-Output "BLANK|BLANKy" >  $sysinfo  # this gets ignored
 
 Write-Output "Hostname:|$Hostname" >> $sysinfo
+Write-Output "Role:|$ComputerRole" >> $sysinfo
+Write-Output "Domain:|$DOMAINORWG" >> $sysinfo
 Write-Output "OS:|$OS (Build:$OSBuild)" >> $sysinfo
 Write-Output "Arch:|$Arch" >> $sysinfo
-Write-Output "Computer Role:|$ComputerRole" >> $sysinfo
 
 Write-Output "BIOS Version:|$biosVersion" >> $sysinfo
 
 #Write-Output "Is Virtual:|$IsVirtual" >> $sysinfo
 
 Write-Output "Whoami:|$UserName" >> $sysinfo
-Write-Output "Local Group Meberships:|$UserGroups" >> $sysinfo
+Write-Output "Whoami Privs (Enabled):|$whoamiprivs" >> $sysinfo
+
+Write-Output "Admin Shell?:|$ShellIsAdmin"  >> $sysinfo
+Write-Output "Integrity Level:|$integritylevel">> $sysinfo
+
+Write-Output "Local Group Memberships:|$UserGroups" >> $sysinfo
 Write-Output "Local Users:|$LocalUsers" >> $sysinfo
 Write-Output "Logged in Users:|[$LoggedInUsersCount] $LoggedInUsers" >> $sysinfo
-Write-Output "Admin Shell?:|$ShellIsAdmin"  >> $sysinfo
 Write-Output "Current Dir:|$CurrentDir" >> $sysinfo
 Write-Output "IPv4:|$IPv4" >> $sysinfo
 Write-Output "IPv6:|$IPv6" >> $sysinfo
-Write-Output "Domain:|$DOMAINORWG" >> $sysinfo
+
 Write-Output "Logon Server:|$LogonServer" >> $sysinfo
 
 Write-Output "Proxy Server:|$ISPROXY"  >> $sysinfo
 
 #Write-Output "Proxy Server:|$ProxyEnable ($ProxyServer)"  >> $sysinfo
 
-Write-Output "Integrity Level:|$integritylevel">> $sysinfo
+
 
 
 
@@ -546,6 +558,4 @@ Remove-Item C:\windows\temp\dotnettemp 2> $null > $null
 Remove-Item C:\windows\temp\avtemp 2> $null > $null
 Remove-Item C:\windows\temp\loggedinusers.txt 2> $null > $null
 }
-
-
 
